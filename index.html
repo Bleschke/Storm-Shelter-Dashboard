@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07111f" />
+  <title>Storm Shelter Emergency Dashboard</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="styles.css?v=25" />
+</head>
+<body>
+  <div id="legalDisclaimerBanner" class="legal-disclaimer-banner" role="note" aria-label="Unofficial reference disclaimer">
+    <strong>UNOFFICIAL REFERENCE TOOL — USE AT YOUR OWN RISK</strong> — For planning and situational awareness only. Not a life-safety system. In an immediate emergency, call 911 and follow local officials, NWS, FEMA, and first responders.
+  </div>
+
+  <header class="topbar">
+    <div>
+      <h1>Storm Shelter Emergency Dashboard</h1>
+      <p>Shelters, addresses, NWS alerts/polygons, radar, routing, offline export, and family accountability.</p>
+    </div>
+    <div class="topActions">
+      <button type="button" id="locateBtn">Use My Location</button>
+      <button type="button" id="dashboardBtn" class="secondary">Kiosk Mode</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel">
+      <section class="card warning"><strong>Emergency note:</strong> This is a planning/display tool. During active severe weather, follow local emergency management, NWS alerts, 911, and shelter staff instructions.</section>
+
+      <section class="card controls">
+        <label>Search radius
+          <select id="radiusMiles"><option value="10">10 miles</option><option value="25" selected>25 miles</option><option value="50">50 miles</option><option value="100">100 miles</option><option value="250">250 miles</option></select>
+        </label>
+        <label>Manual location / ZIP / city
+          <input id="manualLocation" placeholder="Example: Bel Air, MD" />
+        </label>
+        <div class="buttonGrid">
+          <button type="button" id="searchManualBtn" class="secondary">Search Manual Location</button>
+          <button type="button" id="refreshBtn" class="secondary">Refresh Shelters</button>
+          <button type="button" id="alertsBtn" class="secondary">Refresh NWS Alerts</button>
+          <button type="button" id="nearestBtn" class="secondary">Route to Best Shelter</button>
+        </div>
+      </section>
+
+      <section class="card controls">
+        <h2>Map Layers</h2>
+        <label><input type="checkbox" id="layerRadar" checked /> Radar overlay</label>
+        <label>Radar mode
+          <select id="radarMode">
+            <option value="animated" selected>Animated radar loop</option>
+            <option value="nexrad">NEXRAD / NOAA current radar</option>
+          </select>
+        </label>
+        <div class="miniControls" id="radarAnimationControls">
+          <button type="button" id="radarBackBtn" class="tiny" title="Previous radar frame">◀</button>
+          <button type="button" id="radarPlayBtn" class="tiny" title="Play or pause radar">⏸ Pause</button>
+          <button type="button" id="radarForwardBtn" class="tiny" title="Next radar frame">▶</button>
+        </div>
+        <div id="radarTime" class="smallStatus">Radar timeline not loaded yet.</div>
+        <label><input type="checkbox" id="layerLightning" /> Lightning detection layer</label>
+        <label>Lightning GeoJSON feed
+          <input id="lightningFeed" placeholder="Auto: /api/lightning/wwlln, or custom GeoJSON/JSON" />
+        </label>
+        <label><input type="checkbox" id="layerAlerts" checked /> NWS warning/watch polygons</label>
+        <label><input type="checkbox" id="layerTraffic" /> Road closures placeholder layer</label>
+        <label>Base map
+          <select id="baseMap"><option value="street">Street</option><option value="satellite">Satellite</option><option value="terrain">Terrain</option></select>
+        </label>
+      </section>
+
+      <section class="card controls">
+        <h2>Filters & Scoring</h2>
+        <label><input type="checkbox" id="filterOpen" /> Open shelters only when source provides status</label>
+        <label><input type="checkbox" id="filterStorm" /> Storm/tornado-related shelters</label>
+        <label><input type="checkbox" id="filterAda" /> ADA/accessibility mentioned</label>
+        <label><input type="checkbox" id="filterPets" /> Pet-friendly mentioned</label>
+        <label><input type="checkbox" id="avoidAlerts" checked /> Prefer shelters outside active warning polygons</label>
+      </section>
+
+      <section class="card status">
+        <h2>Operational Status</h2>
+        <div id="statusText">Loading dashboard…</div>
+        <div class="chips"><span id="cacheChip">Cache: disabled until first search</span><span id="networkChip">Network: checking…</span><span id="clockChip"></span></div>
+        <div id="diagnostics" style="margin-top:8px;font-size:12px;opacity:.85"></div>
+        <div id="liveStatus" class="smallStatus">Live updates: browser fallback mode</div>
+        <div class="legend"><span><i class="dot open"></i> FEMA open shelter</span><span><i class="dot fema"></i> FEMA shelter</span><span><i class="dot osm"></i> OpenStreetMap</span><span><i class="dot alert"></i> NWS alert polygon</span></div>
+      </section>
+
+      <section class="card alertsCard">
+        <h2>Active NWS Alerts</h2>
+        <div id="alertsText">No alert query yet.</div>
+        <div id="alertsList" class="alertsList"></div>
+      </section>
+
+      <section class="card checkinCard">
+        <h2>Family / Team Check-In</h2>
+        <div class="inline"><input id="checkName" placeholder="Name" /><select id="checkStatus"><option>Safe</option><option>En route</option><option>Need help</option><option>Unknown</option></select></div>
+        <button type="button" id="addCheckBtn" class="secondary">Add / Update</button>
+        <div id="checkList" class="checkList"></div>
+      </section>
+
+      <section class="card controls">
+        <h2>Integrations</h2>
+        <label>Live WebSocket URL
+          <input id="wsUrl" placeholder="Auto: ws(s)://this-host/ws or ws://pi:8787" />
+        </label>
+        <div class="buttonGrid"><button type="button" id="connectWsBtn" class="secondary">Connect Live Feed</button><button type="button" id="disconnectWsBtn" class="secondary">Disconnect Live Feed</button></div>
+        <label>Webhook / Meshtastic / ntfy URL
+          <input id="webhookUrl" placeholder="Optional POST URL" />
+        </label>
+        <div class="buttonGrid"><button type="button" id="sendSituationBtn" class="secondary">Send Situation Summary</button><button type="button" id="exportBtn" class="secondary">Export JSON</button></div>
+        <small>Browser-only mode can POST a summary to a local relay, ntfy topic, or Meshtastic bridge if CORS allows it.</small>
+      </section>
+
+      <section id="results" class="results"></section>
+    </aside>
+    <section class="mapWrap"><div id="map"></div></section>
+  </main>
+
+
+  <div id="legalDisclaimerModal" class="legal-modal" role="dialog" aria-modal="true" aria-labelledby="legalDisclaimerTitle">
+    <div class="legal-modal-content expanded-legal">
+      <h2 id="legalDisclaimerTitle">Unofficial Emergency Reference Tool</h2>
+      <p>
+        This dashboard is provided strictly for informational, planning, and reference purposes only.
+        It is <strong>not</strong> an official emergency notification, dispatch, life-safety,
+        sheltering, evacuation, weather-warning, medical, or public-safety system.
+      </p>
+      <p>
+        Data displayed by this application — including shelter locations, shelter operational status,
+        maps, addresses, routes, GPS position, radar imagery, lightning data, weather alerts,
+        polygons, and other emergency-related information — may be delayed, incomplete,
+        unavailable, inaccurate, interrupted, corrupted, or outdated.
+      </p>
+      <p>
+        You must independently verify all information with official sources, including local emergency
+        management agencies, NOAA/NWS, FEMA, law enforcement, fire/rescue, shelter operators,
+        public-safety agencies, and other qualified authorities before making emergency, medical,
+        evacuation, sheltering, travel, or life-safety decisions.
+      </p>
+      <p>
+        By using this application, you acknowledge and agree that the creator, distributor, host,
+        operator, maintainer, contributors, and affiliated parties shall not be held liable or
+        responsible for any direct, indirect, incidental, consequential, punitive, special, exemplary,
+        or other damages, losses, injuries, illnesses, deaths, property damage, data loss, emotional
+        distress, financial loss, business interruption, or other harm arising from or related to use,
+        misuse, inability to use, reliance upon, or interpretation of this software or its data.
+      </p>
+      <p>
+        Use of this software is entirely at your own risk. Users are solely responsible for their own
+        actions, decisions, emergency preparedness, evacuation choices, sheltering decisions,
+        communications, travel, and safety measures. The software creator/operator is not responsible
+        for user actions or decisions made before, during, or after an emergency.
+      </p>
+      <p>
+        In an immediate or life-threatening emergency, call <strong>911</strong>, seek safe shelter,
+        and follow official instructions from emergency authorities and first responders.
+      </p>
+      <button type="button" id="legalAcceptBtn">I Understand and Accept These Terms</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js?v=25"></script>
+</body>
+</html>

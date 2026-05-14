@@ -1,0 +1,10 @@
+services:
+  storm-shelter-dashboard:
+    build: .
+    container_name: storm-shelter-dashboard
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      - PORT=8787
+      - ALERT_PUSH_INTERVAL_MS=120000

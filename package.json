@@ -1,0 +1,17 @@
+{
+  "name": "storm-shelter-emergency-dashboard",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Storm shelter dashboard with crisp NOAA radar, NWS polygons, WWLLN lightning, and WebSocket live updates.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "adm-zip": "^0.5.16"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
