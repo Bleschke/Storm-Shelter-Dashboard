@@ -1,4 +1,4 @@
-# Storm Shelter Emergency Dashboard
+# Storm Shelter Location Dashboard
 
 ## What was added in this version
 
